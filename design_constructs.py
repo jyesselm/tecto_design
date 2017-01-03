@@ -1,11 +1,20 @@
 from rnamake import resource_manager as rm
 from rnamake import secondary_structure_parser, motif_type, motif_graph
 
+class Factory(object):
+    @staticmethod
+    def get(name):
+        if name == 'Flow11BP':
+            return Flow11BP()
+        else:
+            raise ValueError("no problem with name: " + name)
+
 class TectoDesignConstruct(object):
     def __init__(self):
         self.fseq = ""
         self.fss = ""
         self.mg = None
+        self.name = ""
 
     def _get_m_names_from_seq_and_ss(self, seq, ss):
         parser = secondary_structure_parser.SecondaryStructureParser()
@@ -37,16 +46,18 @@ class TectoDesignConstruct(object):
 
 class Flow11BP(TectoDesignConstruct):
     def __init__(self):
+        self.name = "Flow11BP"
         self.fseq = "CUAGGAAUCUGGAAGUACACGAGGAAACUCGUGUACUUCCUGUGUCCUAG"
         self.fss  = "((((((....(((((((((((((....)))))))))))))....))))))"
-        self.mg   = self._setup_mg()
         self.start_ni = -1
         self.start_ei = -1
         self.end_ni   = -1
         self.end_ei   = -1
+        self.mg   = self._setup_mg()
+
 
     def _setup_mg(self):
-        steps = self._get_m_names_from_seq_and_ss(seq, ss)
+        steps = self._get_m_names_from_seq_and_ss(self.fseq, self.fss)
         mg = motif_graph.MotifGraph()
 
         m = rm.manager.get_bp_step("GG_LL_CC_RR")
