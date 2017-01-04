@@ -1,132 +1,138 @@
-from rnamake import motif_graph, motif_factory, motif
-from rnamake import resource_manager as rm
+import argparse
 import pandas as pd
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+from collections import defaultdict
 
-def get_gaaa_receptor(m):
-    chains = m.chains()
-    res = []
-    bps = []
-    for c in chains:
-        if c.first().num == 149:
-            continue
-        res.extend(c.residues)
-    for bp in m.basepairs:
-        if bp.res1 in res and bp.res2 in res:
-            bps.append(bp)
+from rnamake import motif_graph
 
-    gaaa_just_receptor = motif_factory.factory.motif_from_res(res, bps)
-    gaaa_just_receptor.name = "gaaa_receptor"
-    rm.manager.add_motif(motif=gaaa_just_receptor)
-    return gaaa_just_receptor
+sns.set(style="white", context="talk", font_scale=1.2)
+
+import file_manager
+
+def times_used(row):
+    spl = row["designs_used"].split(";")
+    return len(spl)-1
 
 
-def get_ggaa_tetraloop(m):
-    chains = m.chains()
-    res = []
-    bps = []
-    for c in chains:
-        if c.first().num != 1:
-            continue
-        res.extend(c.residues)
-    for bp in m.basepairs:
-        if bp.res1 in res and bp.res2 in res:
-            bps.append(bp)
-
-    ggaa_tetraloop = motif_factory.factory.motif_from_res(res, bps)
-    ggaa_tetraloop.name = "ggaa_tetraloop"
-    ggaa_tetraloop.block_end_add = -1
-    return ggaa_tetraloop
+def get_motif_usage(df):
+    motifs = defaultdict(str)
+    for i, row in df.iterrows():
+        motifs_used = row.motifs_uses.split(";")
+        for m_name in motifs_used[:-1]:
+            if m_name[0] == "H" or m_name[0:1] == "BP":
+                continue
+            motifs[m_name] += str(row.design_num) + ";"
+    motif_usage_df = pd.DataFrame(motifs.items(), columns=("m_name", "designs_used"))
+    mtimes_used = motif_usage_df.apply(lambda x: times_used(x), axis=1)
+    motif_usage_df['times_used'] = mtimes_used
+    return motif_usage_df
 
 
-def generate_mg_with_only_chip(mg):
-    get_gaaa_receptor(mg.get_node(m_name="GAAA_tetraloop").data)
-    ggaa_tetraloop = get_ggaa_tetraloop(mg.get_node(m_name="GGAA_tetraloop").data)
+def plot_design_motif_usage(df, fmanager):
+    motif_usage_df = get_motif_usage(df)
+    plt.figure()
+    g = sns.barplot(x="m_name", y="times_used", data=motif_usage_df)
+    plt.setp(g.get_xticklabels(), rotation=90)
+    plt.tight_layout()
+    plt.savefig(fmanager.design_results_path+"/plots/motif_used.png")
+    plt.clf()
 
-    new_mg = motif_graph.MotifGraph()
-    new_mg.set_options('sterics', 0)
-    start_m = mg.get_node(17).data
 
-    new_m = motif_graph.flip_alignment(start_m, 1)
-    new_mg.add_motif(new_m)
+def plot_design_distros(df, fmanager):
+    plt.figure()
+    sns.distplot(df["design_score"])
+    plt.savefig(fmanager.design_results_path+"/plots/design_score_distro.png")
+    plt.clf()
 
-    pos = 16
-    while pos != 13:
-        new_mg.add_motif(m_name=mg.get_node(pos).data.name,
-                         m_end_name=mg.get_node(pos).data.ends[1].name())
-        pos -= 1
-    new_mg.add_motif(rm.manager.get_motif(name="gaaa_receptor", end_name="A229-A245"))
+    plt.figure()
+    sns.distplot([len(x) for x in df["design_sequence"]])
+    plt.savefig(fmanager.design_results_path+"/plots/length_distro.png")
+    plt.clf()
 
-    c = mg.get_node(m_name="GAAA_tetraloop").connections[1]
-    start = c.partner(mg.get_node(m_name="GAAA_tetraloop").index)
-    current = start
 
-    while 1:
-        #print current.index
-        if current.index == 19:
+def plot_seq_opt_distros(df, fmanager):
+    plt.figure()
+    sns.distplot(df["opt_score"])
+    plt.savefig(fmanager.seq_opt_results_path+"best/plots/opt_score_distro.png")
+    plt.clf()
+
+
+def get_summary_df(df, norm_seq=None):
+    new_df = df[df.apply(lambda x:  x['avg_hit_count'] != 0, axis=1)].copy()
+    avg_count_wildtype = 1196
+    dG_predicted = []
+    for i, row in new_df.iterrows():
+        prediction = 1.9872041e-3*298*math.log(float(avg_count_wildtype)/float(row['avg_hit_count']))
+        dG_predicted.append(prediction)
+
+    new_df.loc[:, 'dG_predicted'] = dG_predicted
+    return new_df
+
+
+def plot_simulation_distros(df, fmanager):
+    plt.figure()
+    sns.distplot(df["dG_predicted"])
+    plt.savefig(fmanager.sim_results_path+"/plots/sim_best_dG_distro.png")
+    plt.clf()
+
+    plt.figure()
+    sns.regplot(x=df["opt_score"], y=df["dG_predicted"], scatter_kws={"s": 100})
+    plt.savefig(fmanager.sim_results_path+"/plots/sim_best_opt_score_vs_dG.png")
+    plt.clf()
+
+def get_top_simulation_pdbs(df, fmanager):
+    df_new = df.sort(['dG_predicted'], ascending=[1])
+    for i, r in df_new.iterrows():
+        if r.dG_predicted > 0:
             break
-
-        if len(new_mg) == 1:
-            new_mg.add_motif(current.data, parent_end_name="A222-A251")
-        else:
-            new_mg.add_motif(current.data)
-        current = current.connections[1].partner(current.index)
-
-    last_pos = new_mg.last_node().index
-
-    new_mg.add_motif(ggaa_tetraloop, orphan=1)
-    new_mg.add_motif(rm.manager.get_bp_step('CG_LL_CG_RR'))
-    last_pos_2 = new_mg.add_motif(rm.manager.get_motif(name='HELIX.IDEAL'))
-
-    new_mg.add_connection(last_pos, last_pos_2)
-    connect_ni = [last_pos, last_pos_2]
-
-    return new_mg, connect_ni
+        d_num = int(r.design_num)
+        o_num = int(r.opt_num)
+        f = open(fmanager.seq_opt_results_path+"/best/"+str(d_num)+".out")
+        lines = f.readlines()
+        f.close()
+        l = lines[o_num-1]
+        mg = motif_graph.MotifGraph(l)
+        mg.to_pdb(fmanager.seq_opt_results_path+"/best/pdbs/"+"top."+str(d_num)+"."+str(o_num)+".pdb",
+                  renumber=1,
+                  close_chain=1)
 
 
-wdir = "20170101_11bp_constructs/"
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', help='which problem working on', required=True)
+    parser.add_argument('-wdir', help='working directory', required=True)
+    parser.add_argument('-design', help='design constructs', action="store_true")
+    parser.add_argument('-seq_opt', help='sequence optimization', action="store_true")
+    parser.add_argument('-simulation', help='run tecto simulation', action="store_true")
 
-f = open(wdir+"/data/bp11_problem.out")
-lines = f.readlines()
-f.close()
+    args = parser.parse_args()
+    return args
 
-df = pd.DataFrame(columns="num fname ni1 ei1 ni2 ei2".split())
-pos = 0
+if __name__ == '__main__':
+    args = parse_args()
+    fmanager = file_manager.FileManager(args.c, args.wdir)
 
-# based on visual inspection
-exclude = [3, 5]
+    if args.design:
+        design_df = pd.read_csv(fmanager.design_score_file)
 
-for i, l in enumerate(lines):
-    if i in exclude:
-        continue
-    print i
-    mg = motif_graph.MotifGraph(mg_str=l)
-    try:
-        new_mg, connect_ni = generate_mg_with_only_chip(mg)
-    except:
-        continue
-    fname = wdir+"data/sequence_opt/"+str(i)+".mg"
-    f = open(fname, "w")
-    f.write(new_mg.to_str() + "\n")
-    f.close()
+        plot_design_motif_usage(design_df, fmanager)
+        plot_design_distros(design_df, fmanager)
 
-    df.loc[pos] = [i, fname, connect_ni[0], 1, connect_ni[1], 1]
-    pos += 1
+    if args.seq_opt:
+        best_seq_opt_df = pd.read_csv(fmanager.seq_opt_best_summary_file)
+        plot_seq_opt_distros(best_seq_opt_df, fmanager)
 
-df.to_csv(wdir+"data/seq_opt.csv", index=False)
+    if args.simulation:
+        sim_df = pd.read_csv(fmanager.sim_results_path+"/best.csv", index_col=False)
+        sum_df = get_summary_df(sim_df)
+        #plot_simulation_distros(sum_df, fmanager)
+        get_top_simulation_pdbs(sum_df, fmanager)
 
 
 
-#print new_mg.secondary_structure().sequence()
-#print new_mg.secondary_structure().dot_bracket()
-
-#f = open(wdir+"data/bp11_problem_only_chip.out", "w")
-#f.write(new_mg.to_str() + "\n")
-#f.close()
-
-
-
-#new_mg_2 = motif_graph.MotifGraph(mg_str=l)
-#new_mg_2.write_pdbs("new")
 
 
 

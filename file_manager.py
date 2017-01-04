@@ -20,19 +20,30 @@ class FileManager(object):
         self.design_out_file = self.design_results_path + self.problem + ".out"
         self.design_log_file = self.outputs_path + "design.log"
 
+        self.seq_opt_results_path = self.results_path+"/sequence_opt/"
+        self.seq_opt_input_path = self.results_path + "/sequence_opt/inputs/"
+        self.seq_opt_input_file = self.results_path + "/sequence_opt/inputs.csv"
+        self.seq_opt_best_summary_file = self.results_path + "/sequence_opt/best.csv"
+
+        self.sim_results_path = self.results_path + "/simulation/"
+
     def _setup_dir(self):
         os.mkdir(self.wdir)
         os.mkdir(self.inputs_path)
         os.mkdir(self.outputs_path)
         os.mkdir(self.results_path)
+        os.mkdir(self.wdir+"/pdbs")
         os.mkdir(self.wdir+"/results/construct_designs")
         os.mkdir(self.wdir+"/results/construct_designs/pdbs")
         os.mkdir(self.wdir+"/results/construct_designs/plots")
         os.mkdir(self.wdir+"/results/sequence_opt/")
         os.mkdir(self.wdir+"/results/sequence_opt/inputs")
         os.mkdir(self.wdir+"/results/sequence_opt/best")
+        os.mkdir(self.wdir+"/results/sequence_opt/best/pdbs")
         os.mkdir(self.wdir+"/results/sequence_opt/random")
         os.mkdir(self.wdir+"/results/sequence_opt/plots")
+        os.mkdir(self.wdir+"/results/simulation")
+        os.mkdir(self.wdir+"/results/simulation/plots")
 
         #setup default input files
         # for design
