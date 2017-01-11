@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import math
 from collections import defaultdict
 
-from rnamake import motif_graph
+from rnamake import motif_graph, vienna
 
 sns.set(style="white", context="talk", font_scale=1.2)
 
@@ -20,8 +20,8 @@ def times_used(row):
 def get_motif_usage(df):
     motifs = defaultdict(str)
     for i, row in df.iterrows():
-        motifs_used = row.motifs_uses.split(";")
-        for m_name in motifs_used[:-1]:
+        motifs_used = row['motifs_uses'].split(";")
+        for m_name in motifs_used:
             if m_name[0] == "H" or m_name[0:1] == "BP":
                 continue
             motifs[m_name] += str(row.design_num) + ";"
@@ -48,7 +48,7 @@ def plot_design_distros(df, fmanager):
     plt.clf()
 
     plt.figure()
-    sns.distplot([len(x) for x in df["design_sequence"]])
+    sns.distplot([len(x.split("&")[1]) for x in df["design_sequence"]])
     plt.savefig(fmanager.design_results_path+"/plots/length_distro.png")
     plt.clf()
 
@@ -83,10 +83,23 @@ def plot_simulation_distros(df, fmanager):
     plt.savefig(fmanager.sim_results_path+"/plots/sim_best_opt_score_vs_dG.png")
     plt.clf()
 
+
+def plot_simulation_distros_alt(df, fmanager):
+    plt.figure()
+    sns.distplot(df["dG_predicted"],hist=False)
+    plt.savefig(fmanager.sim_results_path+"/plots/sim_best_alt_dG_distro.png")
+    plt.clf()
+
+    plt.figure()
+    sns.regplot(x=df["opt_score"], y=df["dG_predicted"], scatter_kws={"s": 100})
+    plt.savefig(fmanager.sim_results_path+"/plots/sim_best_alt_opt_score_vs_dG.png")
+    plt.clf()
+
+
 def get_top_simulation_pdbs(df, fmanager):
     df_new = df.sort(['dG_predicted'], ascending=[1])
     for i, r in df_new.iterrows():
-        if r.dG_predicted > 0:
+        if r.dG_predicted > 2:
             break
         d_num = int(r.design_num)
         o_num = int(r.opt_num)
@@ -98,6 +111,48 @@ def get_top_simulation_pdbs(df, fmanager):
         mg.to_pdb(fmanager.seq_opt_results_path+"/best/pdbs/"+"top."+str(d_num)+"."+str(o_num)+".pdb",
                   renumber=1,
                   close_chain=1)
+
+
+def plot_final_motif_usage(design_df, df, fmanager):
+    motifs_used = []
+    for i, r in df.iterrows():
+        design_row = design_df.iloc[r.design_num]
+        motifs_used.append(design_row['motifs_uses'])
+
+    df.loc[:, "motifs_uses"] = motifs_used
+    df = df[df.dG_predicted < 2].copy()
+
+    motif_usage_df = get_motif_usage(df)
+
+    plt.figure()
+    g = sns.barplot(x="m_name", y="times_used", data=motif_usage_df)
+    plt.setp(g.get_xticklabels(), rotation=90)
+    plt.tight_layout()
+    plt.savefig(fmanager.sim_results_path+"/plots/motif_used.png")
+    plt.clf()
+
+
+def plot_final_motif_usage_alt(design_df, df, fmanager):
+    motifs_used = []
+    for i, r in df.iterrows():
+        design_row = design_df.iloc[r.design_num]
+        motifs_used.append(design_row['motifs_uses'])
+
+    df.loc[:, "motifs_uses"] = motifs_used
+    df = df[df.dG_predicted < 2].copy()
+
+    motif_usage_df = get_motif_usage(df)
+    motif_usage_df.to_csv(fmanager.results_path+"final/motifs_used.csv",index=False)
+    df.to_csv(fmanager.results_path+"final/best_alt.csv",index=False)
+
+    plt.figure()
+    g = sns.barplot(x="m_name", y="times_used", data=motif_usage_df)
+    plt.setp(g.get_xticklabels(), rotation=90)
+    plt.tight_layout()
+    plt.savefig(fmanager.sim_results_path+"/plots/motif_used_alt.png")
+    plt.clf()
+
+
 
 
 def parse_args():
@@ -126,10 +181,22 @@ if __name__ == '__main__':
         plot_seq_opt_distros(best_seq_opt_df, fmanager)
 
     if args.simulation:
+        design_df = pd.read_csv(fmanager.design_score_file)
         sim_df = pd.read_csv(fmanager.sim_results_path+"/best.csv", index_col=False)
         sum_df = get_summary_df(sim_df)
+        sum_df.to_csv(fmanager.sim_results_path+"/best_sum.csv", index_col=False)
+
         #plot_simulation_distros(sum_df, fmanager)
-        get_top_simulation_pdbs(sum_df, fmanager)
+        #plot_final_motif_usage(design_df, sum_df, fmanager)
+        #get_top_simulation_pdbs(sum_df, fmanager)
+        #get_final_sequences(sum_df, fmanager)
+
+    #design_df = pd.read_csv(fmanager.seq_opt_results_path+"/alt_inputs.csv")
+    #sim_df = pd.read_csv(fmanager.sim_results_path+"/best_alt.csv", index_col=False)
+    #sum_df = get_summary_df(sim_df)
+    #sum_df.to_csv(fmanager.sim_results_path+"/best_alt_sum.csv", index_col=False)
+    #plot_simulation_distros_alt(sum_df, fmanager)
+    #plot_final_motif_usage_alt(design_df, sum_df, fmanager)
 
 
 

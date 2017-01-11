@@ -85,7 +85,7 @@ def generate_mg_with_only_chip(mg):
     last_pos = new_mg.last_node().index
 
     new_mg.add_motif(ggaa_tetraloop, orphan=1)
-    new_mg.add_motif(rm.manager.get_bp_step('CG_LL_CG_RR'))
+    #new_mg.add_motif(rm.manager.get_bp_step('CG_LL_CG_RR'))
     last_pos_2 = new_mg.add_motif(rm.manager.get_motif(name='HELIX.IDEAL'))
 
     new_mg.add_connection(last_pos, last_pos_2)
