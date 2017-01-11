@@ -9,6 +9,7 @@ from rnamake.wrappers import design_rna_wrapper, sequence_optimizer_wrapper
 from rnamake.wrappers import simulate_tectos_wrapper
 from rnamake import util, motif_graph
 from rnamake import resource_manager as rm
+from rnamake.submit import qsub_job
 import design_constructs, file_manager, chip_only
 
 def initial_design_constructs(fmanager):
@@ -97,6 +98,34 @@ def get_best_opt_alt(fmanager):
     df_full = pd.concat(dfs)
     df_full.to_csv(fmanager.seq_opt_results_path+"best_alt.csv", index=False)
 
+
+def get_best_opt_alt_setup_parallel(fmanager):
+    spw = sequence_optimizer_wrapper.SequenceOptimizerWrapper()
+    spw.setup_from_file(fmanager.inputs_path+"seq_opt_best.input")
+
+    df = pd.read_csv(fmanager.seq_opt_results_path+"/alt_inputs.csv")
+    s = ""
+    interval = len(df)/20
+    job_num = 0
+
+    for i,r in df.iterrows():
+        end_1 = str(int(r.ni1))+","+str(int(r.ei1))
+        end_2 = str(int(r.ni2))+","+str(int(r.ei2))
+        opts = {
+            'mg'         : os.path.abspath(r.fname),
+            'end_1'      : end_1,
+            'end_2'      : end_2,
+            'out_file'   : os.path.abspath(fmanager.seq_opt_results_path+"best_alt/"+str(int(r.num))+".out"),
+            'score_file' : os.path.abspath(fmanager.seq_opt_results_path+"best_alt/"+str(int(r.num))+".scores")
+        }
+        s +=  spw.get_command(**opts) + "\n"
+        path = os.path.abspath(fmanager.seq_opt_results_path+"best_alt_runs/"+str(job_num)+".sh")
+        if i != 0 and i % interval == 0:
+            job = qsub_job.QSUBJob(path, s, walltime="5:00:00")
+            job_num += 1
+
+    path = os.path.abspath(fmanager.seq_opt_results_path+"best_alt_runs/"+str(job_num)+".sh")
+    job = qsub_job.QSUBJob(path, s, walltime="5:00:00")
 
 def run_simulations(fmanager, c):
     df = pd.read_csv(fmanager.seq_opt_best_summary_file)
@@ -266,6 +295,7 @@ if __name__ == '__main__':
     if args.simulation:
         run_simulations(fmanager, c)
 
-    use_alt_motifs(fmanager)
+    #use_alt_motifs(fmanager)
+    get_best_opt_alt_setup_parallel(fmanager)
     #get_best_opt_alt(fmanager)
     #run_simulations_alt(fmanager, c)
