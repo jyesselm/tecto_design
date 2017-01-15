@@ -7,6 +7,7 @@ import math
 from collections import defaultdict
 
 from rnamake import motif_graph, vienna
+from rnamake import resource_manager as rm
 
 sns.set(style="white", context="talk", font_scale=1.2)
 
@@ -20,7 +21,7 @@ def times_used(row):
 def get_motif_usage(df):
     motifs = defaultdict(str)
     for i, row in df.iterrows():
-        motifs_used = row['motifs_uses'].split(";")
+        motifs_used = row['motifs_uses'].split(",")
         for m_name in motifs_used:
             if m_name[0] == "H" or m_name[0:1] == "BP":
                 continue
@@ -141,7 +142,17 @@ def plot_final_motif_usage_alt(design_df, df, fmanager):
     df.loc[:, "motifs_uses"] = motifs_used
     df = df[df.dG_predicted < 2].copy()
 
+    seq = []
+    dot_bracket = []
     motif_usage_df = get_motif_usage(df)
+    for i, r in motif_usage_df.iterrows():
+        m = rm.manager.get_motif(name=r.m_name)
+        seq.append(m.sequence())
+        dot_bracket.append(m.dot_bracket())
+
+    motif_usage_df.loc[:, "seq"] = seq
+    motif_usage_df.loc[:, "dot_bracket"] = dot_bracket
+
     motif_usage_df.to_csv(fmanager.results_path+"final/motifs_used.csv",index=False)
     df.to_csv(fmanager.results_path+"final/best_alt.csv",index=False)
 
@@ -191,12 +202,12 @@ if __name__ == '__main__':
         #get_top_simulation_pdbs(sum_df, fmanager)
         #get_final_sequences(sum_df, fmanager)
 
-    #design_df = pd.read_csv(fmanager.seq_opt_results_path+"/alt_inputs.csv")
-    #sim_df = pd.read_csv(fmanager.sim_results_path+"/best_alt.csv", index_col=False)
-    #sum_df = get_summary_df(sim_df)
-    #sum_df.to_csv(fmanager.sim_results_path+"/best_alt_sum.csv", index_col=False)
+    design_df = pd.read_csv(fmanager.seq_opt_results_path+"/alt_inputs.csv")
+    sim_df = pd.read_csv(fmanager.sim_results_path+"/best_alt.csv", index_col=False)
+    sum_df = get_summary_df(sim_df)
+    sum_df.to_csv(fmanager.sim_results_path+"/best_alt_sum.csv", index_col=False)
     #plot_simulation_distros_alt(sum_df, fmanager)
-    #plot_final_motif_usage_alt(design_df, sum_df, fmanager)
+    plot_final_motif_usage_alt(design_df, sum_df, fmanager)
 
 
 

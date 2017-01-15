@@ -9,6 +9,7 @@ class FileManager(object):
         self.inputs_path = wdir+"/inputs/"
         self.outputs_path = wdir+"/outputs/"
         self.results_path = wdir+"/results/"
+        self.runs_path = wdir+"/runs/"
 
         self.design_results_path = self.results_path+"construct_designs/"
 
@@ -44,6 +45,7 @@ class FileManager(object):
         os.mkdir(self.wdir+"/results/sequence_opt/plots")
         os.mkdir(self.wdir+"/results/simulation")
         os.mkdir(self.wdir+"/results/simulation/plots")
+        os.mkdir(self.wdir+"/runs/")
 
         #setup default input files
         # for design

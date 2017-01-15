@@ -127,6 +127,26 @@ def get_best_opt_alt_setup_parallel(fmanager):
     path = os.path.abspath(fmanager.seq_opt_results_path+"best_alt_runs/"+str(job_num)+".sh")
     job = qsub_job.QSUBJob(path, s, walltime="5:00:00")
 
+
+def setup_parallel_runs(c, fmanager):
+    incr = 100
+    count = 0
+    pos = -1
+    f_new = None
+    new_manager = None
+    with open(fmanager.design_out_file) as f:
+        for l in f:
+            if count == 0:
+                pos += 1
+                new_manager = file_manager.FileManager(c, fmanager.runs_path+str(pos))
+                f_new = open(new_manager.design_out_file, "w")
+            f_new.write(l)
+            count += 1
+            if count == 10:
+                count = 0
+                exit()
+
+
 def run_simulations(fmanager, c):
     df = pd.read_csv(fmanager.seq_opt_best_summary_file)
     seen = []
@@ -271,6 +291,7 @@ def parse_args():
     parser.add_argument('-setup_seq_opt', help='setup sequence optimization', action="store_true")
     parser.add_argument('-seq_opt', help='sequence optimization', action="store_true")
     parser.add_argument('-simulation', help='run tecto simulation', action="store_true")
+    parser.add_argument('-all', help='run all but design', action="store_true")
 
     args = parser.parse_args()
     return args
@@ -295,7 +316,15 @@ if __name__ == '__main__':
     if args.simulation:
         run_simulations(fmanager, c)
 
+    if args.all:
+        chip_only.generate_chip_only_mgs(fmanager)
+        get_best_opt(fmanager)
+        run_simulations(fmanager, c)
+
+    setup_parallel_runs(args.c, fmanager)
+
+    #exit()
     #use_alt_motifs(fmanager)
-    get_best_opt_alt_setup_parallel(fmanager)
+    #get_best_opt_alt_setup_parallel(fmanager)
     #get_best_opt_alt(fmanager)
     #run_simulations_alt(fmanager, c)
