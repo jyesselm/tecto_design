@@ -1,15 +1,16 @@
 import argparse
 import pandas as pd
-import seaborn as sns
+#import seaborn as sns
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import math
+import glob
 from collections import defaultdict
 
 from rnamake import motif_graph, vienna
 from rnamake import resource_manager as rm
 
-sns.set(style="white", context="talk", font_scale=1.2)
+#sns.set(style="white", context="talk", font_scale=1.2)
 
 import file_manager
 
@@ -163,7 +164,17 @@ def plot_final_motif_usage_alt(design_df, df, fmanager):
     plt.savefig(fmanager.sim_results_path+"/plots/motif_used_alt.png")
     plt.clf()
 
+def get_parallel_results(fmanager):
+    frames = []
+    out_files = glob.glob(fmanager.runs_path+"/*/results/simulation/best.csv")
+    for out_f in out_files:
+        print out_f
+        df = pd.read_csv(out_f)
+        df = df[df.apply(lambda x:  x['avg_hit_count'] != 0, axis=1)]
+        frames.append(df)
 
+    df = pd.concat(frames)
+    df.to_csv(fmanager.sim_results_path+"best.csv")
 
 
 def parse_args():
@@ -173,6 +184,7 @@ def parse_args():
     parser.add_argument('-design', help='design constructs', action="store_true")
     parser.add_argument('-seq_opt', help='sequence optimization', action="store_true")
     parser.add_argument('-simulation', help='run tecto simulation', action="store_true")
+    parser.add_argument('-parallel', help='get parallel results', action="store_true")
 
     args = parser.parse_args()
     return args
@@ -202,12 +214,15 @@ if __name__ == '__main__':
         #get_top_simulation_pdbs(sum_df, fmanager)
         #get_final_sequences(sum_df, fmanager)
 
-    design_df = pd.read_csv(fmanager.seq_opt_results_path+"/alt_inputs.csv")
-    sim_df = pd.read_csv(fmanager.sim_results_path+"/best_alt.csv", index_col=False)
-    sum_df = get_summary_df(sim_df)
-    sum_df.to_csv(fmanager.sim_results_path+"/best_alt_sum.csv", index_col=False)
+    if args.parallel:
+        get_parallel_results(fmanager)
+
+    #design_df = pd.read_csv(fmanager.seq_opt_results_path+"/alt_inputs.csv")
+    #sim_df = pd.read_csv(fmanager.sim_results_path+"/best_alt.csv", index_col=False)
+    #sum_df = get_summary_df(sim_df)
+    #sum_df.to_csv(fmanager.sim_results_path+"/best_alt_sum.csv", index_col=False)
     #plot_simulation_distros_alt(sum_df, fmanager)
-    plot_final_motif_usage_alt(design_df, sum_df, fmanager)
+    #plot_final_motif_usage_alt(design_df, sum_df, fmanager)
 
 
 

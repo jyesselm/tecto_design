@@ -129,23 +129,27 @@ def get_best_opt_alt_setup_parallel(fmanager):
 
 
 def setup_parallel_runs(c, fmanager):
-    incr = 100
+    incr = 500
     count = 0
     pos = -1
     f_new = None
     new_manager = None
+    job =None
     with open(fmanager.design_out_file) as f:
         for l in f:
             if count == 0:
+                print pos 
                 pos += 1
                 new_manager = file_manager.FileManager(c, fmanager.runs_path+str(pos))
                 f_new = open(new_manager.design_out_file, "w")
+                s  = "cd /home/jyesselm/projects/RNAMake.projects/tecto_design\n"
+                s += "python2.7 run.py -c Flow11BP -wdir 20170114_11bp_constructs/runs/"+str(pos) + " -all" 
+                job = qsub_job.QSUBJob(os.path.abspath(fmanager.wdir+"/qsub/"+str(pos)+".sh"), s, "10:00:00")
             f_new.write(l)
             count += 1
-            if count == 10:
+            if count == incr:
                 count = 0
-                exit()
-
+                job.submit()
 
 def run_simulations(fmanager, c):
     df = pd.read_csv(fmanager.seq_opt_best_summary_file)
@@ -292,6 +296,7 @@ def parse_args():
     parser.add_argument('-seq_opt', help='sequence optimization', action="store_true")
     parser.add_argument('-simulation', help='run tecto simulation', action="store_true")
     parser.add_argument('-all', help='run all but design', action="store_true")
+    parser.add_argument('-setup_parallel', action="store_true")
 
     args = parser.parse_args()
     return args
@@ -321,7 +326,8 @@ if __name__ == '__main__':
         get_best_opt(fmanager)
         run_simulations(fmanager, c)
 
-    setup_parallel_runs(args.c, fmanager)
+    if args.setup_parallel:
+        setup_parallel_runs(args.c, fmanager)
 
     #exit()
     #use_alt_motifs(fmanager)
